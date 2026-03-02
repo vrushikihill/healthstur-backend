@@ -31,6 +31,18 @@ class SolutionDto {
   benefits?: string;
 
   @IsString()
+  @IsNotEmpty()
+  priceIndia: string;
+
+  @IsString()
+  @IsNotEmpty()
+  priceUsa: string;
+
+  @IsString()
+  @IsNotEmpty()
+  priceEurope: string;
+
+  @IsString()
   @IsOptional()
   image?: string;
 

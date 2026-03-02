@@ -257,6 +257,9 @@ model PricingPlan {
   name        String
   description String          @db.Text
   price       String
+  priceIndia  String?         @default("")
+  priceUsa    String?         @default("")
+  priceEurope String?         @default("")
   features    Json            @default("[]")
   support     Json            @default("[]")
   positioning Json            @default("[]")

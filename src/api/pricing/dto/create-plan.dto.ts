@@ -28,6 +28,21 @@ export class CreatePlanDto {
   @IsNotEmpty()
   price: string;
 
+  @ApiPropertyOptional()
+  @IsString()
+  @IsOptional()
+  priceIndia?: string;
+
+  @ApiPropertyOptional()
+  @IsString()
+  @IsOptional()
+  priceUsa?: string;
+
+  @ApiPropertyOptional()
+  @IsString()
+  @IsOptional()
+  priceEurope?: string;
+
   @ApiProperty()
   @IsArray()
   features: string[];
