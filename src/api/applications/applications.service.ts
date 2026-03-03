@@ -119,7 +119,7 @@ export class ApplicationsService {
         <body>
           <div class="container">
             <div class="header">
-              <div class="logo">Healthstur Fitness</div>
+              <div class="logo">Healthstur</div>
               <div class="title">Payment Receipt & Invoice</div>
             </div>
             
@@ -161,7 +161,7 @@ export class ApplicationsService {
             </div>
 
             <div class="footer">
-              <p>Thank you for choosing Healthstur Fitness!</p>
+              <p>Thank you for choosing Healthstur!</p>
               <p>If you have any questions concerning this invoice, contact our support.</p>
             </div>
           </div>
@@ -225,11 +225,11 @@ export class ApplicationsService {
         // check if SMTP is configured to avoid crashes, fallback or warn if not
         if (process.env.SMTP_USER && process.env.SMTP_PASS) {
           await transporter.sendMail({
-            from: '"Healthstur Fitness" <no-reply@healthstur.com>',
+            from: '"Healthstur" <no-reply@healthstur.com>',
             to: application.email,
-            subject: 'Your Payment Invoice - Healthstur Fitness',
+            subject: 'Your Payment Invoice - Healthstur',
             text: 'Please find attached your payment invoice for your recent purchase.',
-            html: '<p>Hi,</p><p>Thank you for your purchase. Please find your invoice attached.</p><br/><p>Best regards,<br/>Healthstur Fitness Team</p>',
+            html: '<p>Hi,</p><p>Thank you for your purchase. Please find your invoice attached.</p><br/><p>Best regards,<br/>Healthstur Team</p>',
             attachments: [
               {
                 filename: `invoice_${application.razorpayOrderId || application.id}.pdf`,
