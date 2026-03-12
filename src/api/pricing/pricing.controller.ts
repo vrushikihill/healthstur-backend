@@ -39,6 +39,12 @@ export class PricingController {
   }
 
   @UseGuards(AuthGuard('jwt'))
+  @Put('durations/reorder')
+  reorderDurations(@Body('orders') orders: { id: string; order: number }[]) {
+    return this.pricingService.reorderDurations(orders);
+  }
+
+  @UseGuards(AuthGuard('jwt'))
   @Get('durations/:id')
   findOneDuration(@Param('id') id: string) {
     return this.pricingService.findOneDuration(id);
@@ -73,6 +79,12 @@ export class PricingController {
   }
 
   @UseGuards(AuthGuard('jwt'))
+  @Put('plans/reorder')
+  reorderPlans(@Body('orders') orders: { id: string; order: number }[]) {
+    return this.pricingService.reorderPlans(orders);
+  }
+
+  @UseGuards(AuthGuard('jwt'))
   @Get('plans/:id')
   findOnePlan(@Param('id') id: string) {
     return this.pricingService.findOnePlan(id);
@@ -88,18 +100,5 @@ export class PricingController {
   @Delete('plans/:id')
   removePlan(@Param('id') id: string) {
     return this.pricingService.removePlan(id);
-  }
-
-  // REORDERING
-  @UseGuards(AuthGuard('jwt'))
-  @Put('durations/reorder')
-  reorderDurations(@Body('orders') orders: { id: string; order: number }[]) {
-    return this.pricingService.reorderDurations(orders);
-  }
-
-  @UseGuards(AuthGuard('jwt'))
-  @Put('plans/reorder')
-  reorderPlans(@Body('orders') orders: { id: string; order: number }[]) {
-    return this.pricingService.reorderPlans(orders);
   }
 }
