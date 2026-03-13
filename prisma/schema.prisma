@@ -271,7 +271,6 @@ model PricingPlan {
   prices      Json            @default("{}")
   features    Json            @default("[]")
   support     Json            @default("[]")
-  positioning Json            @default("[]")
   icon        String
   highlighted Boolean         @default(false)
   buttonText  String          @default("BUY NOW")

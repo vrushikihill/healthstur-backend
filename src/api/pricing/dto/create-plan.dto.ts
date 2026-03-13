@@ -43,10 +43,6 @@ export class CreatePlanDto {
   support: string[];
 
   @ApiProperty()
-  @IsArray()
-  positioning: string[];
-
-  @ApiProperty()
   @IsString()
   @IsNotEmpty()
   icon: string;
