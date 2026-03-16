@@ -151,6 +151,24 @@ export class ApplicationsService {
             },
           });
         }
+      } else if (payload.type === 'REFUND_STATUS_WEBHOOK') {
+        const orderId = payload.data.refund.order_id;
+        const refundStatus = payload.data.refund.refund_status;
+        const application = await this.prisma.application.findFirst({
+          where: { cashfreeOrderId: orderId },
+        });
+
+        if (application) {
+          await this.prisma.application.update({
+            where: { id: application.id },
+            data: {
+              paymentStatus:
+                refundStatus === 'SUCCESS' ? 'REFUNDED' : 'REFUND_PENDING',
+              cashfreeRefundId: payload.data.refund.refund_id,
+              refundDetails: payload.data.refund,
+            },
+          });
+        }
       }
 
       return { status: 'OK' };
@@ -356,7 +374,10 @@ export class ApplicationsService {
       const updatedApp = await this.prisma.application.update({
         where: { id },
         data: {
-          paymentStatus: 'REFUNDED',
+          paymentStatus:
+            refundResponse.data.refund_status === 'SUCCESS'
+              ? 'REFUNDED'
+              : 'REFUND_PENDING',
           cashfreeRefundId: refundResponse.data.refund_id,
           refundDetails: refundResponse.data as any,
         },
