@@ -136,6 +136,11 @@ export class ApplicationsService {
       this.cashfree.PGVerifyWebhookSignature(signature, rawBody, timestamp);
 
       const payload = req.body;
+      console.log(
+        'Webhook Received:',
+        payload.type,
+        JSON.stringify(payload, null, 2),
+      );
 
       if (payload.type === 'PAYMENT_SUCCESS_WEBHOOK') {
         const orderId = payload.data.order.order_id;
@@ -157,13 +162,17 @@ export class ApplicationsService {
         const application = await this.prisma.application.findFirst({
           where: { cashfreeOrderId: orderId },
         });
-
         if (application) {
+          console.log(
+            `Updating Application ${application.id} to ${refundStatus} from Webhook`,
+          );
           await this.prisma.application.update({
             where: { id: application.id },
             data: {
               paymentStatus:
-                refundStatus === 'SUCCESS' ? 'REFUNDED' : 'REFUND_PENDING',
+                refundStatus?.toUpperCase() === 'SUCCESS'
+                  ? 'REFUNDED'
+                  : 'REFUND_PENDING',
               cashfreeRefundId: payload.data.refund.refund_id,
               refundDetails: payload.data.refund,
             },
@@ -371,11 +380,15 @@ export class ApplicationsService {
       );
 
       // 2. Update status in database with the refund details
+      console.log(
+        'Initial Refund Response:',
+        JSON.stringify(refundResponse.data, null, 2),
+      );
       const updatedApp = await this.prisma.application.update({
         where: { id },
         data: {
           paymentStatus:
-            refundResponse.data.refund_status === 'SUCCESS'
+            refundResponse.data.refund_status?.toUpperCase() === 'SUCCESS'
               ? 'REFUNDED'
               : 'REFUND_PENDING',
           cashfreeRefundId: refundResponse.data.refund_id,
