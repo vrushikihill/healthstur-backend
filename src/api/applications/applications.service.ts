@@ -21,6 +21,7 @@ export class ApplicationsService {
       process.env.CASHFREE_CLIENT_ID || '',
       process.env.CASHFREE_CLIENT_SECRET || '',
     );
+    this.cashfree.XApiVersion = '2023-08-01';
   }
 
   async create(createApplicationDto: CreateApplicationDto) {
@@ -29,15 +30,24 @@ export class ApplicationsService {
         createApplicationDto.amount.replace(/[^0-9.]/g, ''),
       );
       if (!isNaN(numericAmount) && numericAmount > 0) {
+        const cleanPhone =
+          createApplicationDto.mobileNumber?.replace(/\D/g, '').slice(-10) ||
+          '9999999999';
+
         try {
           const request = {
+            order_id: `order_${Date.now()}_${Math.random().toString(36).substring(7)}`,
             order_amount: numericAmount,
             order_currency: createApplicationDto.currency || 'INR',
             customer_details: {
-              customer_id: `cust_${Date.now()}`,
+              customer_id:
+                `cust${Date.now()}${Math.random().toString(36).substring(7)}`.replace(
+                  /[^a-zA-Z0-9]/g,
+                  '',
+                ),
               customer_email:
                 createApplicationDto.email || 'no-email@healthstur.com',
-              customer_phone: createApplicationDto.mobileNumber || '9999999999',
+              customer_phone: cleanPhone,
               customer_name: createApplicationDto.fullName || 'Guest',
             },
           };
@@ -50,8 +60,14 @@ export class ApplicationsService {
             cashfreeOrderId: response.data.order_id,
           };
         } catch (error: any) {
+          console.error(
+            'Cashfree Order Creation Error:',
+            JSON.stringify(error?.response?.data || error, null, 2),
+          );
           throw new BadRequestException(
-            error?.error?.description || 'Failed to create payment order',
+            error?.response?.data?.message ||
+              error?.error?.description ||
+              'Failed to create payment order',
           );
         }
       }
