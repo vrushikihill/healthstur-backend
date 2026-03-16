@@ -35,10 +35,10 @@ export class ApplicationsService {
           '9999999999';
 
         try {
-          const request = {
+          const createOrderRequest = (currency: string) => ({
             order_id: `order_${Date.now()}_${Math.random().toString(36).substring(7)}`,
             order_amount: numericAmount,
-            order_currency: createApplicationDto.currency || 'INR',
+            order_currency: currency,
             customer_details: {
               customer_id:
                 `cust${Date.now()}${Math.random().toString(36).substring(7)}`.replace(
@@ -50,9 +50,37 @@ export class ApplicationsService {
               customer_phone: cleanPhone,
               customer_name: createApplicationDto.fullName || 'Guest',
             },
-          };
+          });
 
-          const response = await this.cashfree.PGCreateOrder(request);
+          let response;
+          const targetCurrency = createApplicationDto.currency || 'INR';
+
+          try {
+            // First attempt with the selected currency
+            response = await this.cashfree.PGCreateOrder(
+              createOrderRequest(targetCurrency),
+            );
+          } catch (error: any) {
+            const errorData = error?.response?.data || error;
+            const message = errorData?.message || '';
+
+            // If the currency is not enabled, fallback to INR
+            if (
+              targetCurrency !== 'INR' &&
+              (message.toLowerCase().includes('currency not enabled') ||
+                errorData?.code === 'currency_not_enabled')
+            ) {
+              console.warn(
+                `Currency ${targetCurrency} not enabled. Falling back to INR.`,
+              );
+              response = await this.cashfree.PGCreateOrder(
+                createOrderRequest('INR'),
+              );
+            } else {
+              // Re-throw if it's a different error
+              throw error;
+            }
+          }
 
           // Return the payment session ID for Cashfree Checkout.
           return {
