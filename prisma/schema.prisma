@@ -157,10 +157,10 @@ model Application {
   duration         String
   routine          String   @db.Text
   selectedProgram  String?
-  paymentStatus    String   @default("PENDING")
-  razorpayOrderId  String?
-  razorpayPaymentId String?
-  razorpayRefundId String?
+  paymentStatus     String   @default("PENDING")
+  cashfreeOrderId   String?
+  cashfreePaymentId String?
+  cashfreeRefundId  String?
   refundDetails    Json?
   amount           String?
   currency         String?
