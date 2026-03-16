@@ -6,6 +6,8 @@ import {
   Param,
   Delete,
   Res,
+  Req,
+  Headers,
 } from '@nestjs/common';
 import { Response } from 'express';
 import { ApplicationsService } from './applications.service';
@@ -23,6 +25,11 @@ export class ApplicationsController {
   @Post(':id/refund')
   refund(@Param('id') id: string) {
     return this.applicationsService.refund(id);
+  }
+
+  @Post('webhook')
+  async handleWebhook(@Req() req: any, @Headers() headers: any) {
+    return this.applicationsService.handleWebhook(req, headers);
   }
 
   @Post('verify-payment')

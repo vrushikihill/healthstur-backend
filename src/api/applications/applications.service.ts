@@ -2,23 +2,25 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  HttpException,
+  HttpStatus,
 } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { CreateApplicationDto } from './dto/create-application.dto';
-import Razorpay from 'razorpay';
-import * as crypto from 'crypto';
+import { Cashfree, CFEnvironment } from 'cashfree-pg';
 import * as puppeteer from 'puppeteer';
 import * as nodemailer from 'nodemailer';
 
 @Injectable()
 export class ApplicationsService {
-  private razorpay: any;
+  private cashfree: Cashfree;
 
   constructor(private readonly prisma: PrismaService) {
-    this.razorpay = new Razorpay({
-      key_id: process.env.RAZORPAY_KEY_ID || 'rzp_test_QGdFrCgX1jtz7u',
-      key_secret: process.env.RAZORPAY_KEY_SECRET || 'BiZV5oB2iNz4k2YcgGdMGjEe',
-    });
+    this.cashfree = new Cashfree(
+      CFEnvironment.PRODUCTION,
+      process.env.CASHFREE_CLIENT_ID || '',
+      process.env.CASHFREE_CLIENT_SECRET || '',
+    );
   }
 
   async create(createApplicationDto: CreateApplicationDto) {
@@ -27,18 +29,26 @@ export class ApplicationsService {
         createApplicationDto.amount.replace(/[^0-9.]/g, ''),
       );
       if (!isNaN(numericAmount) && numericAmount > 0) {
-        const amountInSmallestUnit = Math.round(numericAmount * 100);
-
         try {
-          const order = await this.razorpay.orders.create({
-            amount: amountInSmallestUnit,
-            currency: createApplicationDto.currency,
-            receipt: `rcpt_${Date.now()}`,
-          });
+          const request = {
+            order_amount: numericAmount,
+            order_currency: createApplicationDto.currency || 'INR',
+            customer_details: {
+              customer_id: `cust_${Date.now()}`,
+              customer_email:
+                createApplicationDto.email || 'no-email@healthstur.com',
+              customer_phone: createApplicationDto.mobileNumber || '9999999999',
+              customer_name: createApplicationDto.fullName || 'Guest',
+            },
+          };
 
-          // Return only the order ID for the frontend to initialize Checkout.
-          // DO NOT SAVE to the database yet.
-          return { razorpayOrderId: order.id };
+          const response = await this.cashfree.PGCreateOrder(request);
+
+          // Return the payment session ID for Cashfree Checkout.
+          return {
+            paymentSessionId: response.data.payment_session_id,
+            cashfreeOrderId: response.data.order_id,
+          };
         } catch (error: any) {
           throw new BadRequestException(
             error?.error?.description || 'Failed to create payment order',
@@ -59,43 +69,81 @@ export class ApplicationsService {
   }
 
   async verifyPayment(body: any) {
-    const {
-      razorpay_order_id,
-      razorpay_payment_id,
-      razorpay_signature,
-      applicationData,
-    } = body;
+    const { order_id, applicationData } = body;
 
-    const secret =
-      process.env.RAZORPAY_KEY_SECRET || 'BiZV5oB2iNz4k2YcgGdMGjEe';
-    const generatedSignature = crypto
-      .createHmac('sha256', secret)
-      .update(razorpay_order_id + '|' + razorpay_payment_id)
-      .digest('hex');
+    try {
+      if (!applicationData) {
+        throw new BadRequestException(
+          'Missing application data for finalized recording.',
+        );
+      }
 
-    if (generatedSignature !== razorpay_signature) {
-      throw new BadRequestException('Invalid signature verification failed');
+      const response = await this.cashfree.PGOrderFetchPayments(order_id);
+
+      const successfulPayment = response.data?.filter(
+        (payment: any) => payment.payment_status === 'SUCCESS',
+      );
+
+      if (!successfulPayment || successfulPayment.length === 0) {
+        throw new BadRequestException('Invalid payment verification failed');
+      }
+
+      const payment = successfulPayment[0];
+
+      const newApplication = await this.prisma.application.create({
+        data: {
+          ...applicationData,
+          paymentStatus: 'SUCCESS',
+          cashfreeOrderId: order_id,
+          cashfreePaymentId: payment.cf_payment_id?.toString() || '',
+        },
+      });
+
+      // Fire off async email/invoice generation
+      this.generateAndSendInvoice(newApplication).catch(() => {});
+
+      return { success: true, application: newApplication };
+    } catch (error: any) {
+      throw new BadRequestException(error.message || 'Verification failed');
     }
+  }
 
-    if (!applicationData) {
-      throw new BadRequestException(
-        'Missing application data for finalized recording.',
+  async handleWebhook(req: any, headers: any) {
+    try {
+      const signature = headers['x-webhook-signature'];
+      const timestamp = headers['x-webhook-timestamp'];
+      // NestJS rawBody is typically a Buffer when enabled via NestFactory options
+      const rawBody = req.rawBody
+        ? req.rawBody.toString('utf8')
+        : JSON.stringify(req.body);
+
+      this.cashfree.PGVerifyWebhookSignature(signature, rawBody, timestamp);
+
+      const payload = req.body;
+
+      if (payload.type === 'PAYMENT_SUCCESS_WEBHOOK') {
+        const orderId = payload.data.order.order_id;
+        const application = await this.prisma.application.findFirst({
+          where: { cashfreeOrderId: orderId },
+        });
+
+        if (application && application.paymentStatus !== 'SUCCESS') {
+          await this.prisma.application.update({
+            where: { id: application.id },
+            data: {
+              paymentStatus: 'SUCCESS',
+            },
+          });
+        }
+      }
+
+      return { status: 'OK' };
+    } catch (err) {
+      throw new HttpException(
+        'Invalid Webhook Signature',
+        HttpStatus.BAD_REQUEST,
       );
     }
-
-    const newApplication = await this.prisma.application.create({
-      data: {
-        ...applicationData,
-        paymentStatus: 'SUCCESS',
-        razorpayOrderId: razorpay_order_id,
-        razorpayPaymentId: razorpay_payment_id,
-      },
-    });
-
-    // Fire off async email/invoice generation
-    this.generateAndSendInvoice(newApplication).catch(() => {});
-
-    return { success: true, application: newApplication };
   }
 
   private getInvoiceHtml(application: any) {
@@ -131,11 +179,11 @@ export class ApplicationsService {
                 </tr>
                 <tr>
                   <th>Order ID</th>
-                  <td>${application.razorpayOrderId || 'N/A'}</td>
+                  <td>${application.cashfreeOrderId || 'N/A'}</td>
                 </tr>
                 <tr>
                   <th>Payment ID</th>
-                  <td>${application.razorpayPaymentId || 'N/A'}</td>
+                  <td>${application.cashfreePaymentId || 'N/A'}</td>
                 </tr>
                 <tr>
                   <th>Customer Name</th>
@@ -232,7 +280,7 @@ export class ApplicationsService {
             html: '<p>Hi,</p><p>Thank you for your purchase. Please find your invoice attached.</p><br/><p>Best regards,<br/>Healthstur Team</p>',
             attachments: [
               {
-                filename: `invoice_${application.razorpayOrderId || application.id}.pdf`,
+                filename: `invoice_${application.cashfreeOrderId || application.id}.pdf`,
                 content: Buffer.from(pdfBuffer),
               },
             ],
@@ -267,14 +315,25 @@ export class ApplicationsService {
     if (application.paymentStatus !== 'SUCCESS') {
       throw new BadRequestException('Only successful payments can be refunded');
     }
-    if (!application.razorpayPaymentId) {
+    if (!application.cashfreeOrderId) {
       throw new BadRequestException('No payment record found to refund');
     }
 
     try {
-      // 1. Trigger full refund with Razorpay
-      const refundResponse = await this.razorpay.payments.refund(
-        application.razorpayPaymentId,
+      // 1. Trigger full refund with Cashfree
+      const numericAmount = parseFloat(
+        (application.amount || '0').replace(/[^0-9.]/g, ''),
+      );
+
+      const refundRequest = {
+        refund_amount: numericAmount,
+        refund_id: `refund_${Date.now()}`,
+        refund_note: 'Requested by Admin',
+      };
+
+      const refundResponse = await this.cashfree.PGOrderCreateRefund(
+        application.cashfreeOrderId,
+        refundRequest,
       );
 
       // 2. Update status in database with the refund details
@@ -282,8 +341,8 @@ export class ApplicationsService {
         where: { id },
         data: {
           paymentStatus: 'REFUNDED',
-          razorpayRefundId: refundResponse.id,
-          refundDetails: refundResponse,
+          cashfreeRefundId: refundResponse.data.refund_id,
+          refundDetails: refundResponse.data as any,
         },
       });
 
