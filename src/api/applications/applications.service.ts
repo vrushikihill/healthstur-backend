@@ -270,7 +270,7 @@ export class ApplicationsService {
           },
         });
 
-        // check if SMTP is configured to avoid crashes, fallback or warn if not
+        // check if SMTP is Configured to avoid crashes, fallback or warn if not
         if (process.env.SMTP_USER && process.env.SMTP_PASS) {
           await transporter.sendMail({
             from: '"Healthstur" <no-reply@healthstur.com>',
