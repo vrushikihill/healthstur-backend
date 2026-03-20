@@ -6,7 +6,9 @@ import { AllExceptionsFilter } from './@core/filters/exception/all-exceptions.fi
 import { AppModule } from './app.module';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule, {});
+  const app = await NestFactory.create(AppModule, {
+    rawBody: true,
+  });
   app.useLogger(app.get(Logger));
 
   const { httpAdapter } = app.get(HttpAdapterHost);
