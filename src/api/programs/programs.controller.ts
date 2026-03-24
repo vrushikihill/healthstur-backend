@@ -12,9 +12,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { diskStorage } from 'multer';
-import { extname } from 'path';
-import { v4 as uuidv4 } from 'uuid';
+import { uploadImageToS3 } from '../../utils/s3.util';
 import { ProgramsService } from './programs.service';
 import { CreateProgramDto } from './dto/create-program.dto';
 import { UpdateProgramDto } from './dto/update-program.dto';
@@ -32,24 +30,17 @@ export class ProgramsController {
 
   @UseGuards(AuthGuard('jwt'))
   @Post('upload')
-  @UseInterceptors(
-    FileInterceptor('file', {
-      storage: diskStorage({
-        destination: './public',
-        filename: (req, file, cb) => {
-          const uniqueSuffix = uuidv4() + extname(file.originalname);
-          cb(null, uniqueSuffix);
-        },
-      }),
-    }),
-  )
-  uploadImage(@UploadedFile() file: Express.Multer.File) {
+  @UseInterceptors(FileInterceptor('file'))
+  async uploadImage(@UploadedFile() file: Express.Multer.File) {
     if (!file) {
       throw new BadRequestException('No file uploaded');
     }
-    return {
-      url: `/public/${file.filename}`,
-    };
+    const url = await uploadImageToS3(
+      file.buffer,
+      file.originalname,
+      file.mimetype,
+    );
+    return { url };
   }
 
   @Get()

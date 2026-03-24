@@ -13,9 +13,7 @@ import { CompanyInfoService } from './company-info.service';
 import { UpdateCompanyInfoDto } from './dto/update-company-info.dto';
 import { AuthGuard } from '@nestjs/passport';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { diskStorage } from 'multer';
-import { extname } from 'path';
-import { v4 as uuidv4 } from 'uuid';
+import { uploadImageToS3 } from '../../utils/s3.util';
 
 @Controller('company-info')
 export class CompanyInfoController {
@@ -34,23 +32,16 @@ export class CompanyInfoController {
 
   @UseGuards(AuthGuard('jwt'))
   @Post('upload')
-  @UseInterceptors(
-    FileInterceptor('file', {
-      storage: diskStorage({
-        destination: './public',
-        filename: (req, file, cb) => {
-          const uniqueSuffix = uuidv4() + extname(file.originalname);
-          cb(null, uniqueSuffix);
-        },
-      }),
-    }),
-  )
-  uploadImage(@UploadedFile() file: Express.Multer.File) {
+  @UseInterceptors(FileInterceptor('file'))
+  async uploadImage(@UploadedFile() file: Express.Multer.File) {
     if (!file) {
       throw new BadRequestException('No file uploaded');
     }
-    return {
-      url: `/public/${file.filename}`,
-    };
+    const url = await uploadImageToS3(
+      file.buffer,
+      file.originalname,
+      file.mimetype,
+    );
+    return { url };
   }
 }
