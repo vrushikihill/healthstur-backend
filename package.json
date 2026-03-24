@@ -23,6 +23,7 @@
     "commitlint": "commitlint --edit"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1015.0",
     "@aws-sdk/lib-storage": "3.817.0",
     "@langchain/community": "^0.3.57",
     "@langchain/core": "^0.3.78",
@@ -41,7 +42,7 @@
     "@nestjs/schedule": "^4.1.2",
     "@nestjs/serve-static": "^4.0.0",
     "@nestjs/swagger": "^11.0.3",
-    "@prisma/client": "5.9.1",
+    "@prisma/client": "7.5.0",
     "@types/multer-s3": "^3.0.3",
     "aws-sdk": "^2.1692.0",
     "axios": "^1.6.7",
@@ -61,7 +62,7 @@
     "nodemailer": "^6.9.7",
     "passport": "^0.6.0",
     "passport-jwt": "^4.0.1",
-    "prisma": "^5.9.1",
+    "prisma": "^7.5.0",
     "puppeteer": "^24.31.0",
     "reflect-metadata": "^0.1.13",
     "rxjs": "^7.8.1",
