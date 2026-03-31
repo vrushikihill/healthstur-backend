@@ -16,16 +16,6 @@ import { CreateApplicationDto } from './dto/create-application.dto';
 @Controller('applications')
 export class ApplicationsController {
   constructor(private readonly applicationsService: ApplicationsService) {}
-  @Post('test-email')
-  testEmail(@Body() body: { email: string; name?: string }) {
-    if (!body.email) {
-      return {
-        success: false,
-        message: 'Please provide an email field in JSON.',
-      };
-    }
-    return this.applicationsService.testEmail(body.email, body.name);
-  }
 
   @Post()
   create(@Body() createApplicationDto: CreateApplicationDto) {
